@@ -1,21 +1,22 @@
 <?php
-
-require '../../includes/auth.php';
+session_start();
 require '../../config/koneksi.php';
 
-$cari = $_GET['cari'] ?? '';
+if (!isset($_SESSION['cart'])) {
+    $_SESSION['cart'] = [];
+}
 
-$query = $pdo->prepare("
-SELECT *
-FROM m_produk
-WHERE nama_produk LIKE ?
-ORDER BY id_produk DESC
-");
+$produk = $pdo->query("
+    SELECT * 
+    FROM m_produk 
+    ORDER BY nama_produk ASC
+")->fetchAll();
 
-$query->execute(["%$cari%"]);
+$total = 0;
 
-$data = $query->fetchAll();
-
+foreach ($_SESSION['cart'] as $item) {
+    $total += $item['subtotal'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -24,343 +25,151 @@ $data = $query->fetchAll();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Data Produk</title>
+<title>Transaksi Kasir</title>
 
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
 
 *{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
+    font-family: 'Poppins', sans-serif;
 }
 
 body{
-    font-family:'Poppins', sans-serif;
-    min-height:100vh;
-    padding:40px;
-
-    background:
-    linear-gradient(
-        135deg,
-        #fff9e6 0%,
-        #fff2b2 45%,
-        #ffe08a 100%
-    );
-
-    color:#5c4b2d;
+    background: linear-gradient(to bottom right, #FFF8E7, #FFE8B6);
+    min-height: 100vh;
 }
 
-/* CONTAINER */
-.container{
-    max-width:1150px;
-    margin:auto;
+.main-card{
+    border: none;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }
 
-/* CARD */
-.card{
-    background:rgba(255,255,255,0.78);
-    backdrop-filter:blur(14px);
-
-    border:1px solid rgba(255,255,255,0.5);
-
-    border-radius:32px;
-    padding:35px;
-
-    box-shadow:
-    0 10px 35px rgba(255, 208, 90, 0.15);
+.title{
+    color: #7A5C2E;
+    font-weight: 700;
 }
 
-/* TOP HEADER */
-.top-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:28px;
-    flex-wrap:wrap;
-    gap:20px;
+.subtitle{
+    color: #A47C48;
+    font-size: 14px;
 }
 
-.title-area h1{
-    font-size:32px;
-    font-weight:700;
-    color:#7a5c1e;
+.label-text{
+    color: #7A5C2E;
+    font-weight: 500;
+    margin-bottom: 8px;
 }
 
-.title-area p{
-    margin-top:5px;
-    color:#9b8550;
-    font-size:14px;
+.form-control,
+.form-select{
+    border-radius: 14px;
+    border: 2px solid #F7D58A;
+    padding: 12px;
 }
 
-/* SEARCH */
-.search-box{
-    display:flex;
-    gap:12px;
-    margin-bottom:22px;
+.form-control:focus,
+.form-select:focus{
+    border-color: #E6B85C;
+    box-shadow: 0 0 0 0.2rem rgba(230,184,92,0.25);
 }
 
-.search-box input{
-    flex:1;
-    height:54px;
-    border:none;
-    border-radius:18px;
-    padding:0 18px;
-
-    background:#fffdf6;
-
-    font-size:14px;
-    color:#6d5524;
-
-    box-shadow:
-    inset 0 0 0 1px #f5deb3;
-
-    transition:0.25s;
+.btn-butter{
+    background: linear-gradient(to right, #F6C65B, #F1B944);
+    border: none;
+    color: #5A3E13;
+    font-weight: 600;
+    border-radius: 14px;
+    transition: 0.3s;
 }
 
-.search-box input:focus{
-    outline:none;
-
-    box-shadow:
-    0 0 0 4px rgba(255, 217, 102, 0.25);
+.btn-butter:hover{
+    transform: translateY(-2px);
+    background: linear-gradient(to right, #F1B944, #E9A92E);
+    color: #5A3E13;
 }
 
-.search-box button{
-    border:none;
-    padding:0 24px;
-
-    border-radius:18px;
-
-    background:linear-gradient(
-        135deg,
-        #ffd54f,
-        #ffca28
-    );
-
-    color:#6b4f00;
-
-    font-weight:600;
-    cursor:pointer;
-
-    transition:0.25s;
-}
-
-.search-box button:hover{
-    transform:translateY(-2px);
-}
-
-/* BUTTON TAMBAH */
-.btn-add{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-
-    margin-bottom:28px;
-
-    padding:14px 22px;
-
-    border-radius:18px;
-
-    background:linear-gradient(
-        135deg,
-        #ffe082,
-        #ffd54f
-    );
-
-    color:#6d4c00;
-
-    text-decoration:none;
-    font-weight:600;
-
-    box-shadow:
-    0 8px 20px rgba(255, 193, 7, 0.18);
-
-    transition:0.25s;
-}
-
-.btn-add:hover{
-    transform:translateY(-2px);
-}
-
-/* TABLE */
 .table-wrapper{
-    overflow-x:auto;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 2px solid #FFE3A2;
 }
 
-table{
-    width:100%;
-    border-collapse:separate;
-    border-spacing:0 14px;
+.table{
+    margin-bottom: 0;
 }
 
-/* HEADER */
-th{
-    text-align:left;
-    padding:0 16px 12px;
-
-    font-size:13px;
-    font-weight:600;
-    color:#9c7b31;
+.table thead{
+    background: #FFE08A;
+    color: #6A4C1F;
 }
 
-/* ROW */
-td{
-    background:#fffdf9;
-    padding:18px 16px;
-
-    font-size:14px;
-    color:#5c4b2d;
+.table tbody tr{
+    background: #FFFDF8;
 }
 
-/* ROUNDED */
-tr td:first-child{
-    border-top-left-radius:18px;
-    border-bottom-left-radius:18px;
+.table tbody tr:hover{
+    background: #FFF3D8;
 }
 
-tr td:last-child{
-    border-top-right-radius:18px;
-    border-bottom-right-radius:18px;
-}
-
-/* HOVER */
-tbody tr{
-    transition:0.25s;
-}
-
-tbody tr:hover{
-    transform:scale(1.01);
-}
-
-/* PRICE */
-.price{
-    font-weight:600;
-    color:#c28b00;
-}
-
-/* STOCK */
-.stock-box{
-    display:flex;
-    align-items:center;
-    gap:8px;
-}
-
-/* BADGE */
-.badge-kritis{
-    background:#ffb3ba;
-    color:#8b1e3f;
-
-    padding:5px 10px;
-    border-radius:999px;
-
-    font-size:11px;
-    font-weight:600;
-}
-
-/* ACTION */
-.action{
-    display:flex;
-    gap:10px;
-}
-
-/* BUTTON EDIT */
-.btn-edit{
-    padding:9px 15px;
-    border-radius:12px;
-
-    background:#fff1b8;
-    color:#8a6700;
-
-    text-decoration:none;
-    font-size:13px;
-    font-weight:600;
-
-    transition:0.2s;
-}
-
-.btn-edit:hover{
-    transform:translateY(-1px);
-}
-
-/* BUTTON DELETE */
 .btn-delete{
-    padding:9px 15px;
-    border-radius:12px;
-
-    background:#ffd6d6;
-    color:#b42318;
-
-    text-decoration:none;
-    font-size:13px;
-    font-weight:600;
-
-    transition:0.2s;
+    background: #FF8A8A;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    padding: 6px 12px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .btn-delete:hover{
-    transform:translateY(-1px);
+    background: #ff6f6f;
+    color: white;
 }
 
-/* BACK */
-.bottom-action{
-    margin-top:28px;
-    display:flex;
-    justify-content:flex-end;
+.total-box{
+    background: linear-gradient(to right, #FFF1C9, #FFE4A3);
+    border-radius: 22px;
+    padding: 25px;
+    box-shadow: inset 0 2px 10px rgba(255,255,255,0.6);
+}
+
+.total-text{
+    color: #6A4C1F;
+    font-weight: 700;
+}
+
+.empty-cart{
+    padding: 25px;
+    color: #A58A57;
+    font-weight: 500;
+}
+
+.badge-cart{
+    background: #FFE08A;
+    color: #6A4C1F;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.section-title{
+    color: #7A5C2E;
+    font-weight: 600;
 }
 
 .btn-back{
-    padding:13px 22px;
-
-    border-radius:16px;
-
-    background:#fff4cc;
-    color:#8a6700;
-
-    text-decoration:none;
-    font-weight:600;
-
-    transition:0.25s;
-}
-
-.btn-back:hover{
-    transform:translateY(-2px);
-}
-
-/* EMPTY */
-.empty{
-    text-align:center;
-    padding:40px;
-    color:#a38b4d;
-}
-
-/* RESPONSIVE */
-@media(max-width:768px){
-
-    body{
-        padding:20px;
-    }
-
-    .card{
-        padding:24px;
-    }
-
-    .top-header{
-        flex-direction:column;
-        align-items:flex-start;
-    }
-
-    .search-box{
-        flex-direction:column;
-    }
-
-    .search-box button{
-        height:50px;
-    }
-
-    .action{
-        flex-direction:column;
-    }
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 500;
 }
 
 </style>
@@ -368,147 +177,213 @@ tbody tr:hover{
 
 <body>
 
-<div class="container">
+<div class="container py-5">
 
-<div class="card">
+<div class="card main-card p-4 p-md-5">
 
-    <!-- HEADER -->
-    <div class="top-header">
+<div class="d-flex justify-content-between align-items-center flex-wrap mb-4">
 
-        <div class="title-area">
-            <h1>🌼 Data Produk</h1>
-            <p>Kelola produk toko maju jaya</p>
-        </div>
+<div>
 
-    </div>
+<h2 class="title mb-1">
+🛒 Transaksi Penjualan
+</h2>
 
-    <!-- SEARCH -->
-    <form class="search-box">
+<p class="subtitle mb-0">
+Sistem Kasir Swalayan Maju Jaya
+</p>
 
-        <input
-            type="text"
-            name="cari"
-            placeholder="Cari produk "
-            value="<?= htmlspecialchars($cari) ?>"
-        >
+</div>
 
-        <button type="submit">
-            Cari
-        </button>
+<div class="badge-cart mt-3 mt-md-0">
+<?= count($_SESSION['cart']) ?> Item
+</div>
 
-    </form>
+</div>
 
-    <!-- BUTTON -->
-    <a class="btn-add" href="tambah.php">
-        ✨ Tambah Produk
-    </a>
+<form action="tambah_cart.php" method="POST">
 
-    <!-- TABLE -->
-    <div class="table-wrapper">
+<div class="row g-3">
 
-    <table>
+<div class="col-md-5">
 
-        <thead>
-        <tr>
-            <th>Produk</th>
-            <th>Harga</th>
-            <th>Stok</th>
-            <th>Aksi</th>
-        </tr>
-        </thead>
+<label class="label-text">
+Pilih Barang
+</label>
 
-        <tbody>
+<select name="id_produk" class="form-select" required>
 
-        <?php if(count($data) > 0): ?>
+<option value="">
+-- Pilih Barang --
+</option>
 
-            <?php foreach($data as $d): ?>
+<?php foreach($produk as $p): ?>
 
-            <tr>
+<option value="<?= $p['id_produk'] ?>">
 
-                <td>
-                    <strong>
-                        <?= htmlspecialchars($d['nama_produk']) ?>
-                    </strong>
-                </td>
+<?= $p['nama_produk'] ?>
+- Stok <?= $p['stok'] ?>
 
-                <td class="price">
-                    Rp <?= number_format($d['harga_jual']) ?>
-                </td>
+</option>
 
-                <td>
+<?php endforeach; ?>
 
-                    <div class="stock-box">
+</select>
 
-                        <?= $d['stok'] ?>
+</div>
 
-                        <?php if($d['stok'] < 5): ?>
-                            <span class="badge-kritis">
-                                Stok Kritis
-                            </span>
-                        <?php endif; ?>
+<div class="col-md-3">
 
-                    </div>
+<label class="label-text">
+Jumlah Qty
+</label>
 
-                </td>
+<input type="number"
+name="qty"
+class="form-control"
+min="1"
+placeholder="Masukkan qty"
+required>
 
-                <td>
+</div>
 
-                    <div class="action">
+<div class="col-md-4 d-flex align-items-end">
 
-                        <a
-                            class="btn-edit"
-                            href="edit.php?id=<?= $d['id_produk'] ?>"
-                        >
-                            Edit
-                        </a>
+<button class="btn btn-butter w-100 py-3">
++ Tambah ke Keranjang
+</button>
 
-                        <a
-                            class="btn-delete"
-                            href="hapus.php?id=<?= $d['id_produk'] ?>"
-                            onclick="return confirm('Hapus produk?')"
-                        >
-                            Hapus
-                        </a>
+</div>
 
-                    </div>
+</div>
 
-                </td>
+</form>
 
-            </tr>
+<hr class="my-5">
 
-            <?php endforeach; ?>
+<h5 class="section-title mb-3">
+🧾 Keranjang Belanja
+</h5>
 
-        <?php else: ?>
+<div class="table-wrapper">
 
-            <tr>
-                <td colspan="4">
+<table class="table align-middle">
 
-                    <div class="empty">
-                        Produk tidak ditemukan 🌼
-                    </div>
+<thead>
 
-                </td>
-            </tr>
+<tr>
+<th>Barang</th>
+<th>Harga</th>
+<th>Qty</th>
+<th>Subtotal</th>
+<th>Aksi</th>
+</tr>
 
-        <?php endif; ?>
+</thead>
 
-        </tbody>
+<tbody>
 
-    </table>
+<?php if(empty($_SESSION['cart'])): ?>
 
-    </div>
+<tr>
 
-    <!-- BACK -->
-    <div class="bottom-action">
+<td colspan="5" class="text-center empty-cart">
+Keranjang masih kosong 🛍️
+</td>
 
-        <a
-            class="btn-back"
-            href="../../dashboard_admin.php"
-        >
-            ← Kembali
-        </a>
+</tr>
 
-    </div>
+<?php endif; ?>
+
+<?php foreach($_SESSION['cart'] as $i => $item): ?>
+
+<tr>
+
+<td>
+<b><?= $item['nama_produk'] ?></b>
+</td>
+
+<td>
+Rp <?= number_format($item['harga_jual']) ?>
+</td>
+
+<td>
+<?= $item['qty'] ?>
+</td>
+
+<td>
+<b>
+Rp <?= number_format($item['subtotal']) ?>
+</b>
+</td>
+
+<td>
+
+<a href="hapus_cart.php?index=<?= $i ?>"
+class="btn-delete">
+Hapus
+</a>
+
+</td>
+
+</tr>
+
+<?php endforeach; ?>
+
+</tbody>
+
+</table>
+
+</div>
+
+<div class="total-box mt-4">
+
+<div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+
+<h4 class="total-text mb-2 mb-md-0">
+💰 Total Belanja
+</h4>
+
+<h3 class="total-text">
+Rp <?= number_format($total) ?>
+</h3>
+
+</div>
+
+<form action="proses.php" method="POST">
+
+<label class="label-text">
+Uang Bayar
+</label>
+
+<input type="number"
+name="bayar"
+class="form-control mb-4"
+placeholder="Masukkan uang pembayaran"
+required>
+
+<div class="d-flex justify-content-center">
+
+<button class="btn btn-butter px-5 py-2">
+✨ Selesaikan Transaksi
+</button>
+
+</div>
+
+</form>
+
+<div class="d-flex justify-content-end mt-4">
+
+<a href="../../dashboard_admin.php"
+class="btn btn-outline-secondary btn-back">
+
+← Kembali
+
+</a>
+
+</div>
+
+</div>
 
 </div>
 
